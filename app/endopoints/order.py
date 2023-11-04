@@ -1,12 +1,14 @@
-from typing import Annotated
 from datetime import datetime, timedelta
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Body
 from pydantic import validator
 from pydantic.dataclasses import dataclass
 
+from app.workflows.order_workflow import UnverifiedOrder, ShippedInvoice, process_order
 
 router = APIRouter()
+
 
 @dataclass(frozen=True)
 class OrderRequest:
@@ -31,7 +33,7 @@ class OrderRequest:
 
 @dataclass(frozen=True)
 class OrderResponse:
-    item_name: str
+    item_id: str
     bill_amount: int
     arrival_date: datetime
 
@@ -51,8 +53,10 @@ async def create_order(
     ]
 ) -> OrderResponse:
 
+    res = process_order(cast(UnverifiedOrder, order))
+
     return OrderResponse(
-        item_name="Sample Item",
-        bill_amount=order.quantity * 10,
-        arrival_date=datetime.now() + timedelta(days=3),
+        item_id=res.item_id,
+        bill_amount=res.total_price,
+        arrival_date=res.arrival_date,
     )
