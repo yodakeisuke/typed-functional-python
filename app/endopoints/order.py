@@ -1,11 +1,15 @@
-from datetime import datetime, timedelta
-from typing import Annotated, cast
+from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException
 from pydantic import validator
 from pydantic.dataclasses import dataclass
 
-from app.workflows.order_workflow import UnverifiedOrder, ShippedInvoice, process_order
+from app.common.result import Ok, Err
+from app.workflows.order_workflow import process_order
+
+from app.common.mock.order_mock import mock_address_checker, dummy_product_catalog
+
 
 router = APIRouter()
 
@@ -37,6 +41,7 @@ class OrderResponse:
     bill_amount: int
     arrival_date: datetime
 
+
 @router.post("", operation_id="create_order", response_model=OrderResponse)
 async def create_order(
     order: Annotated[
@@ -53,10 +58,18 @@ async def create_order(
     ]
 ) -> OrderResponse:
 
-    res = process_order(cast(UnverifiedOrder, order))
+    res = process_order(mock_address_checker, dummy_product_catalog)(order)
 
-    return OrderResponse(
-        item_id=res.item_id,
-        bill_amount=res.total_price,
-        arrival_date=res.arrival_date,
-    )
+    match res.unwrap():
+        case Ok(value):
+            return(
+                OrderResponse(
+                        item_id=value.item_id,
+                        bill_amount=value.total_price,
+                        arrival_date=value.arrival_date,
+                )
+            )
+        case Err(error):
+            # FastAPIに例外を投げてしまう。
+            # このレイヤーでは、create_order()のシグネチャを必ずしも正確に定義しない。
+            raise HTTPException(status_code=400, detail=error.message)
