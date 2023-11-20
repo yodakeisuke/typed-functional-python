@@ -1,6 +1,5 @@
-from typing import Callable, TypeVar, Any
-
 from dataclasses import dataclass
+from typing import Any, Callable, TypeVar
 
 
 @dataclass(frozen=True)
@@ -17,7 +16,6 @@ class Err[E]:
 class Result[T, E]:
     def __init__(self, value: Ok[T] | Err[E]) -> None:
         self._container = value
-
 
     def bind(self, op: Callable[[T], 'Result[U,E]'])  -> 'Result[U, E]':
         if isinstance(self._container, Ok):

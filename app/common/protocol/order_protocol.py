@@ -1,5 +1,4 @@
 from typing import Protocol
-from datetime import datetime
 
 from pydantic.dataclasses import dataclass
 
@@ -7,7 +6,8 @@ from pydantic.dataclasses import dataclass
 class OrderProtocol(Protocol):
     item_id: str
     quantity: int
-    customer_address: str
+    address_prefecture: str
+    address_detail: str
 
 @dataclass(frozen=True)
 class OrderErrorProtocol(Protocol):

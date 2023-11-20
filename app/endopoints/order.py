@@ -1,26 +1,25 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.dataclasses import dataclass
 
-from app.common.result import Ok, Err
-from app.workflows.order_workflow import process_order
-
-from app.common.mock.order_mock import mock_address_checker, dummy_product_catalog
-
+from common.mock.order_mock import dummy_product_catalog, mock_address_checker
+from common.util.result import Err, Ok
+from workflows.order_workflow import process_order
 
 router = APIRouter()
-
 
 @dataclass(frozen=True)
 class OrderRequest:
     item_id: str
     quantity: int
-    customer_address: str
+    address_prefecture: str
+    address_detail: str
 
-    @validator("item_id", pre=True, always=True)
+    @field_validator("item_id", mode='before')
     def validate_item_id(cls, value: str) -> str:
         if len(value) != 10:
             raise ValueError("item_idは10桁でなければなりません。")
@@ -28,7 +27,7 @@ class OrderRequest:
             raise ValueError("item_idの最初の3文字はアルファベットでなければなりません。")
         return value
 
-    @validator("quantity", pre=True, always=True)
+    @field_validator("quantity", mode='before')
     def quantity_must_be_positive(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("数量は1以上でなければなりません。")
@@ -37,9 +36,9 @@ class OrderRequest:
 
 @dataclass(frozen=True)
 class OrderResponse:
-    item_id: str
-    bill_amount: int
+    bill_amount: Decimal
     arrival_date: datetime
+    delivery_address: str
 
 
 @router.post("", operation_id="create_order", response_model=OrderResponse)
@@ -50,26 +49,27 @@ async def create_order(
             examples=[
                 {
                     "item_id": "ABC1234567",
-                    "quantity": 2,
-                    "customer_address": "123-456 Tokyo, Japan"
+                    "quantity": 5,
+                    "address_prefecture": "東京都",
+                    "address_detail": "丸の内１丁目",
                 }
             ],
         ),
     ]
 ) -> OrderResponse:
 
-    res = process_order(mock_address_checker, dummy_product_catalog)(order)
-
-    match res.unwrap():
-        case Ok(value):
+    match process_order(mock_address_checker, dummy_product_catalog)(order):
+        case Ok(o):
             return(
                 OrderResponse(
-                        item_id=value.item_id,
-                        bill_amount=value.total_price,
-                        arrival_date=value.arrival_date,
+                    bill_amount=o.total_price,
+                    arrival_date=o.arrival_date,
+                    delivery_address=o.delivery_address.prefecture + o.delivery_address.detail,
                 )
             )
-        case Err(error):
-            # FastAPIに例外を投げてしまう。
-            # このレイヤーでは、create_order()のシグネチャを必ずしも正確に定義しない。
-            raise HTTPException(status_code=400, detail=error.message)
+        case Err(e):
+        # このレイヤーではFW依存機能や例外をガンガン使用する
+            raise HTTPException(status_code=400, detail=e.message)
+        case _:
+            print("default case")
+            raise HTTPException(status_code=500, detail="unexpected error in http layer")
