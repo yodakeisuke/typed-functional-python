@@ -95,22 +95,23 @@ def review_order(
             return Err(
                 OrderError(code="InvalidAddress",message="The provided address is invalid.")
             )
-        match Quantity.From(order.quantity):
-            case Ok(value):
-                return Ok(
-                    VerifiedOrder(
-                        item_id=order.item_id,
-                        quantity=value,
-                        delivery_address=DeliveryAddress(
-                            prefecture=order.address_prefecture,
-                            detail=order.address_detail,
-                        )
+
+        return Quantity.From(order.quantity).bind(
+            lambda quantity: Ok(
+                VerifiedOrder(
+                    item_id=order.item_id,
+                    quantity=quantity,
+                    delivery_address=DeliveryAddress(
+                        prefecture=order.address_prefecture,
+                        detail=order.address_detail,
                     )
                 )
-            case Err(error):
-                return Err(
-                    OrderError(code="Order", message=error)
-                )
+            )
+        ).or_else(
+            lambda error: Err(
+                OrderError(code="Order", message=error)
+            )
+        )
 
     return _with_specific_check_method
 

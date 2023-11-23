@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, Never
 
 T = TypeVar('T')
 E = TypeVar('E')
@@ -12,12 +12,18 @@ class Ok[T]:
     def bind(self, op: Callable[[T], 'Result[U, E]']) -> 'Result[U, E]':
         return op(self.value)
 
+    def or_else(self, op: Callable[[Any], 'Result[T, E]']) -> 'Result[T, E]':
+        return self
+
 @dataclass(frozen=True)
 class Err[E]:
     error: E
 
     def bind(self, op: Callable[[Any], 'Result[U, E]']) -> 'Result[U, E]':
         return self
+
+    def or_else[F](self, op: Callable[[Any], 'Err[F]']) -> 'Err[F]':
+        return op(self.error)
 
 type Result[T, E] = Ok[T] | Err[E]
 
