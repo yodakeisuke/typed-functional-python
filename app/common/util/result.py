@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar, Never
+from typing import Any, Callable, TypeVar
 
 T = TypeVar('T')
 E = TypeVar('E')

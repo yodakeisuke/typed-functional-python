@@ -10,6 +10,7 @@ packages = []
 python = "^3.12"
 fastapi = "^0.104.0"
 uvicorn = "^0.23.1"
+python-dotenv = "^1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.1.4"

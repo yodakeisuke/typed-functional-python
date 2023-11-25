@@ -1,12 +1,23 @@
 from dataclasses import dataclass
+from typing import Literal
 
 from common.util.result import Err, Ok, Result
 
 
+type DeliveryMethod = Literal["home", "convenience_store"]
+type Franchisors = Literal["SevenEleven", "FamilyMart", "Lawson"]
+
 @dataclass(frozen=True)
-class DeliveryAddress:
+class CustomerAddress:
     prefecture: str
     detail: str
+
+
+@dataclass(frozen=True)
+class ConvenienceStore:
+    company: Franchisors
+    store_code: str
+
 
 # Value Object Example
 @dataclass(frozen=True)

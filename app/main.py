@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.endopoints import order
+from app.services import order
 
 app = FastAPI()
 

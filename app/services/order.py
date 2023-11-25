@@ -6,18 +6,29 @@ from fastapi import APIRouter, Body, HTTPException
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass
 
-from common.mock.order_mock import dummy_product_catalog, mock_address_checker
-from common.util.result import Err, Ok
+from data_access.index import product_catalog, existence_check_japanese_address, lookup_delivery_days_pack
+
 from workflows.order_workflow import process_order
 
+from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod
+from common.util.result import Err, Ok
+
+from docs.order_examle import home_delivery_example, convenience_store_delivery_example
+
+
+# 外部通信(http、DB書き込み、他のサービスへのイベント通知/キューイングなど)レイヤ。
+# 非純粋な領域。このレイヤーではFW依存機能や例外をガンガン使用する
+# CONSIDER: エンドポイント(httpの捌き)の責務とサービスの責務レイヤーに分割しても良いかもしれない。
+
 router = APIRouter()
+
 
 @dataclass(frozen=True)
 class OrderRequest:
     item_id: str
     quantity: int
-    address_prefecture: str
-    address_detail: str
+    delivery_method: DeliveryMethod
+    shipping_to: CustomerAddress | ConvenienceStore
 
     @field_validator("item_id", mode='before')
     def validate_item_id(cls, value: str) -> str:
@@ -38,7 +49,7 @@ class OrderRequest:
 class OrderResponse:
     bill_amount: Decimal
     arrival_date: datetime
-    delivery_address: str
+    shipping_to: CustomerAddress | ConvenienceStore
 
 
 @router.post("", operation_id="create_order", response_model=OrderResponse)
@@ -46,30 +57,30 @@ async def create_order(
     order: Annotated[
         OrderRequest,
         Body(
-            examples=[
-                {
-                    "item_id": "ABC1234567",
-                    "quantity": 5,
-                    "address_prefecture": "東京都",
-                    "address_detail": "丸の内１丁目",
-                }
-            ],
+            openapi_examples={
+                "home_delivery": home_delivery_example,
+                "convenience_store_delivery": convenience_store_delivery_example,
+            }
         ),
     ]
 ) -> OrderResponse:
 
-    match process_order(mock_address_checker, dummy_product_catalog)(order):
+    order_workflow = process_order(
+        existence_check_japanese_address,
+        product_catalog,
+        lookup_delivery_days_pack,
+    )
+
+    match order_workflow(order):
         case Ok(o):
             return(
                 OrderResponse(
                     bill_amount=o.total_price,
                     arrival_date=o.arrival_date,
-                    delivery_address=o.delivery_address.prefecture + o.delivery_address.detail,
+                    shipping_to=o.shipping_to,
                 )
             )
         case Err(e):
-        # このレイヤーではFW依存機能や例外をガンガン使用する
             raise HTTPException(status_code=400, detail=e.message)
         case _:
-            print("default case")
             raise HTTPException(status_code=500, detail="unexpected error in http layer")

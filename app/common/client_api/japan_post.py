@@ -1,6 +1,16 @@
-import re
-from decimal import Decimal
+type StatusCode = int
 
+def adderess_check_api(
+      prefecture: str,
+      detail: str
+    ) -> StatusCode:
+
+    if mock_address_checker(prefecture, detail):
+        return 200
+    return 404
+
+
+import re
 
 def mock_address_checker(prefecture: str, detail: str) -> bool:
     return is_prefecture(prefecture) and validate_address_detail(detail)
@@ -25,16 +35,3 @@ def validate_address_detail(detail: str) -> bool:
     if len(detail) < min_length:
         return False
     return True
-
-
-def dummy_product_catalog(item_id: str) -> Decimal:
-    if item_id == "ABC1234567":
-        return Decimal("19.99")
-    elif item_id == "XYZ7891234":
-        return Decimal("29.99")
-    elif item_id == "ABC0000000":
-        return Decimal("40.00")
-    elif item_id == "AAA1111111":
-        return Decimal("39.80")
-    else:
-        return Decimal("9.99")
