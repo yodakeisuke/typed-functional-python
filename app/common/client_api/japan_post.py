@@ -1,8 +1,8 @@
 type StatusCode = int
 
 def adderess_check_api(
-      prefecture: str,
-      detail: str
+        prefecture: str,
+        detail: str
     ) -> StatusCode:
 
     if mock_address_checker(prefecture, detail):

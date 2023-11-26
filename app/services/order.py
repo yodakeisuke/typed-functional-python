@@ -13,6 +13,10 @@ from workflows.order_workflow import process_order
 from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod
 from common.util.result import Err, Ok
 
+from common.serializer.order import order_response_to_json
+from common.client_api.pub_event import send_event
+
+
 from docs.order_examle import home_delivery_example, convenience_store_delivery_example
 
 
@@ -73,13 +77,13 @@ async def create_order(
 
     match order_workflow(order):
         case Ok(o):
-            return(
-                OrderResponse(
+            ordered_event = OrderResponse(
                     bill_amount=o.total_price,
                     arrival_date=o.arrival_date,
                     shipping_to=o.shipping_to,
                 )
-            )
+            send_event(order_response_to_json(ordered_event))
+            return ordered_event
         case Err(e):
             raise HTTPException(status_code=400, detail=e.message)
         case _:
