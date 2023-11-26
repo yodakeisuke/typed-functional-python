@@ -54,7 +54,7 @@ def process_order(
     lookup_delivery_days: LookUpDeliveryDaysMethods,
 ) -> Callable[[OrderProtocol], Result[ShippedInvoice, OrderError]]:
 
-    def _process_order_inner(
+    def _process_order_core(
         order: OrderProtocol
     ) -> Result[ShippedInvoice, OrderError]:
 
@@ -65,7 +65,7 @@ def process_order(
             .bind(determine_arrival_date(lookup_delivery_days))
         )
 
-    return _process_order_inner
+    return _process_order_core
 
 
 # tasks
@@ -110,7 +110,7 @@ def calculate_price(
     product_catalog: Callable[[str], Decimal]
 ) -> Callable[[VerifiedOrder], Result[Invoice, OrderError]]:
 
-    def _with_specific_catalog(order: VerifiedOrder) -> Result[Invoice, OrderError]:
+    def _calculate_price_core(order: VerifiedOrder) -> Result[Invoice, OrderError]:
 
         try:
             item_price = product_catalog(order.item_id)
@@ -130,14 +130,14 @@ def calculate_price(
             )
         )
 
-    return _with_specific_catalog
+    return _calculate_price_core
 
 
 def determine_arrival_date(
         lookup_days: LookUpDeliveryDaysMethods,
     )-> Callable[[Invoice], Result[ShippedInvoice, OrderError]]:
 
-    def _determine_arrival_date_inner(
+    def _determine_arrival_date_core(
             invoice: Invoice
         ) -> Result[ShippedInvoice, OrderError]:
 
@@ -165,4 +165,4 @@ def determine_arrival_date(
             )
         )
 
-    return _determine_arrival_date_inner
+    return _determine_arrival_date_core
