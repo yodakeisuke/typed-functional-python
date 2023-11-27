@@ -1,4 +1,7 @@
-# up
+## この記事のサンプルリポジトリ
+https://zenn.dev/kei1104/articles/b6a909a60e0138
+
+### up
 
 ```
 docker compose up -d
