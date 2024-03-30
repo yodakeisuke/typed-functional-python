@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from common.protocol.order_protocol import OrderResProtocol
+from common.protocol.order_protocol import OrderOutProtocol
 
 
 def to_dict(obj: Any) -> Any:
@@ -17,6 +17,6 @@ def to_dict(obj: Any) -> Any:
     else:
         return obj
 
-def order_response_to_json(order_response: OrderResProtocol) -> str:
+def order_response_to_json(order_response: OrderOutProtocol) -> str:
     order_response_dict = to_dict(order_response)
     return json.dumps(order_response_dict)

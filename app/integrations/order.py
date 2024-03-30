@@ -78,7 +78,7 @@ async def create_order(
     match order_workflow(order):
         case Ok(o):
             ordered_event = OrderResponse(
-                    bill_amount=o.total_price,
+                    bill_amount=o.bill_amount,
                     arrival_date=o.arrival_date,
                     shipping_to=o.shipping_to,
                 )

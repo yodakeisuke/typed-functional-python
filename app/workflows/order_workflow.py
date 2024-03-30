@@ -3,32 +3,33 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Callable, Literal, cast
 
+from data_access.index import  AddressCheckerProtocol,  CatalogCheckerProtocol, DeliveryDaysEstimatorProtocol
 from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod, Quantity
-from common.protocol.order_protocol import OrderProtocol, ErrorStateBase
+from common.protocol.order_protocol import OrderInProtocol, OrderOutProtocol, OrderErrorProtocol
 from common.util.result import Err, From, Ok, Result
 
 
 """ resulting events """
 # happy path
 @dataclass(frozen=True)
-class ShippedInvoice:
-    total_price: Decimal
+class ShippedInvoice(OrderOutProtocol):
+    bill_amount: Decimal
     shipping_to: CustomerAddress | ConvenienceStore
     arrival_date: datetime
 
 # error path
 @dataclass(frozen=True)
-class InvalidOrder(ErrorStateBase):
+class InvalidOrder(OrderErrorProtocol):
     code: Literal["InvalidAddress", "InvalidStoreCode", "InvalidQuantity"]
     message: str
 
 @dataclass(frozen=True)
-class OutOfStock(ErrorStateBase):
+class OutOfStock(OrderErrorProtocol):
     code: Literal ["ItemNotFound"]
     message: str
 
 @dataclass(frozen=True)
-class Undeliverable(ErrorStateBase):
+class Undeliverable(OrderErrorProtocol):
     code: Literal ["NonDeliverableArea"]
     message: str
 
@@ -57,29 +58,23 @@ class Invoice:
     shipping_to: CustomerAddress | ConvenienceStore
 
 
-""" data access procotols """
-type ToHome = Callable[[str], int | None]
-type ToCVS  = Callable[[str, str], int]
-type LookUpDeliveryDaysMethods = tuple[ToHome, ToCVS]
-
-
 """ workflow entry point """
 type ProcessOrderResult = Result[ShippedInvoice, OrderError]
 def process_order(
-        address_checker: Callable[[str, str], bool],
-        product_catalog: Callable[[str], Decimal],
-        lookup_delivery_days: LookUpDeliveryDaysMethods,
-    ) -> Callable[[OrderProtocol], ProcessOrderResult]:
+        address_checker: AddressCheckerProtocol,
+        product_catalog: CatalogCheckerProtocol,
+        estimate_delivery_days: DeliveryDaysEstimatorProtocol,
+    ) -> Callable[[OrderInProtocol], ProcessOrderResult]:
 
     def _process_order_core(
-        order: OrderProtocol
+        order: OrderInProtocol
     ) -> ProcessOrderResult:
 
         return (
             From(cast(UnverifiedOrder, order))
             .bind(review_order(address_checker))
             .bind(calculate_price(product_catalog))
-            .bind(determine_arrival_date(lookup_delivery_days))
+            .bind(determine_arrival_date(estimate_delivery_days))
         )
 
     return _process_order_core
@@ -88,7 +83,7 @@ def process_order(
 """ tasks """
 type ReviewResult =Result[VerifiedOrder, InvalidOrder]
 def review_order(
-        check_address_existence: Callable[[str, str], bool]
+        check_address_existence: AddressCheckerProtocol
     ) -> Callable[[UnverifiedOrder], ReviewResult]:
 
     def _review_order_core(order: UnverifiedOrder) -> ReviewResult:
@@ -123,7 +118,7 @@ def review_order(
 
 type CalcPriceResult = Result[Invoice, OutOfStock]
 def calculate_price(
-    product_catalog: Callable[[str], Decimal]
+    product_catalog: CatalogCheckerProtocol
 ) -> Callable[[VerifiedOrder], CalcPriceResult]:
 
     def _calculate_price_core(order: VerifiedOrder) -> CalcPriceResult:
@@ -149,7 +144,7 @@ def calculate_price(
 
 type ArrivalDateResult = Result[ShippedInvoice, Undeliverable]
 def determine_arrival_date(
-        lookup_days: LookUpDeliveryDaysMethods,
+        lookup_days: DeliveryDaysEstimatorProtocol,
     )-> Callable[[Invoice], ArrivalDateResult]:
 
     def _determine_arrival_date_core(invoice: Invoice) -> ArrivalDateResult:
@@ -171,7 +166,7 @@ def determine_arrival_date(
 
         return Ok(
             ShippedInvoice(
-                total_price=invoice.total_price,
+                bill_amount=invoice.total_price,
                 arrival_date=arrival_date,
                 shipping_to=invoice.shipping_to
             )

@@ -7,7 +7,7 @@ from pydantic.dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class OrderProtocol(Protocol):
+class OrderInProtocol(Protocol):
     item_id: str
     quantity: int
     delivery_method: DeliveryMethod
@@ -15,16 +15,11 @@ class OrderProtocol(Protocol):
 
 @dataclass(frozen=True)
 class OrderErrorProtocol(Protocol):
+    code: Any # strではリテラルをsubtypeにできない
     message: str
-    code: str
 
 @dataclass(frozen=True)
-class OrderResProtocol(Protocol):
+class OrderOutProtocol(Protocol):
     bill_amount: Decimal
     arrival_date: datetime
     shipping_to: CustomerAddress | ConvenienceStore
-
-@dataclass(frozen=True)
-class ErrorStateBase:
-    code: Any # strではリテラルをsubtypeにできない
-    message: str
