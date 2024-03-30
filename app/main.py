@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.services import order
+from app.integrations import order
 
 app = FastAPI()
 

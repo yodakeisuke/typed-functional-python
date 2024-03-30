@@ -9,7 +9,7 @@ U = TypeVar('U')
 class Ok[T]:
     value: T
 
-    def bind(self, op: Callable[[T], 'Result[U, E]']) -> 'Result[U, E]':
+    def bind(self, op: Callable[[T], 'Result[U, Any]']) -> 'Result[U, Any]':
         return op(self.value)
 
     def or_else(self, op: Callable[[Any], 'Result[T, E]']) -> 'Result[T, E]':
@@ -19,7 +19,7 @@ class Ok[T]:
 class Err[E]:
     error: E
 
-    def bind(self, op: Callable[[Any], 'Result[U, E]']) -> 'Result[U, E]':
+    def bind(self, op: Callable[[Any], 'Result[Any, E]']) -> 'Result[Any, E]':
         return self
 
     def or_else[F](self, op: Callable[[Any], 'Err[F]']) -> 'Err[F]':

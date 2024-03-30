@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, Any
 
 from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod
 from pydantic.dataclasses import dataclass
@@ -23,3 +23,8 @@ class OrderResProtocol(Protocol):
     bill_amount: Decimal
     arrival_date: datetime
     shipping_to: CustomerAddress | ConvenienceStore
+
+@dataclass(frozen=True)
+class ErrorStateBase:
+    code: Any # strではリテラルをsubtypeにできない
+    message: str

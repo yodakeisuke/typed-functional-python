@@ -1,15 +1,41 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Callable, cast
+from typing import Callable, Literal, cast
 
 from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod, Quantity
-from common.protocol.order_protocol import OrderProtocol
+from common.protocol.order_protocol import OrderProtocol, ErrorStateBase
 from common.util.result import Err, From, Ok, Result
 
 
-# states in workflow
+""" resulting events """
 # happy path
+@dataclass(frozen=True)
+class ShippedInvoice:
+    total_price: Decimal
+    shipping_to: CustomerAddress | ConvenienceStore
+    arrival_date: datetime
+
+# error path
+@dataclass(frozen=True)
+class InvalidOrder(ErrorStateBase):
+    code: Literal["InvalidAddress", "InvalidStoreCode", "InvalidQuantity"]
+    message: str
+
+@dataclass(frozen=True)
+class OutOfStock(ErrorStateBase):
+    code: Literal ["ItemNotFound"]
+    message: str
+
+@dataclass(frozen=True)
+class Undeliverable(ErrorStateBase):
+    code: Literal ["NonDeliverableArea"]
+    message: str
+
+type OrderError = InvalidOrder | OutOfStock | Undeliverable
+
+
+""" state transition in workflow """
 @dataclass(frozen=True)
 class UnverifiedOrder:
     item_id: str
@@ -30,33 +56,24 @@ class Invoice:
     total_price: Decimal
     shipping_to: CustomerAddress | ConvenienceStore
 
-@dataclass(frozen=True)
-class ShippedInvoice:
-    total_price: Decimal
-    shipping_to: CustomerAddress | ConvenienceStore
-    arrival_date: datetime
 
-# error path
-@dataclass(frozen=True)
-class OrderError:
-    code: str
-    message: str
-
-# data access requirement inerfaces
+""" data access procotols """
 type ToHome = Callable[[str], int | None]
 type ToCVS  = Callable[[str, str], int]
 type LookUpDeliveryDaysMethods = tuple[ToHome, ToCVS]
 
-# worlflow
+
+""" workflow entry point """
+type ProcessOrderResult = Result[ShippedInvoice, OrderError]
 def process_order(
-    address_checker: Callable[[str, str], bool],
-    product_catalog: Callable[[str], Decimal],
-    lookup_delivery_days: LookUpDeliveryDaysMethods,
-) -> Callable[[OrderProtocol], Result[ShippedInvoice, OrderError]]:
+        address_checker: Callable[[str, str], bool],
+        product_catalog: Callable[[str], Decimal],
+        lookup_delivery_days: LookUpDeliveryDaysMethods,
+    ) -> Callable[[OrderProtocol], ProcessOrderResult]:
 
     def _process_order_core(
         order: OrderProtocol
-    ) -> Result[ShippedInvoice, OrderError]:
+    ) -> ProcessOrderResult:
 
         return (
             From(cast(UnverifiedOrder, order))
@@ -68,25 +85,23 @@ def process_order(
     return _process_order_core
 
 
-# tasks
+""" tasks """
+type ReviewResult =Result[VerifiedOrder, InvalidOrder]
 def review_order(
         check_address_existence: Callable[[str, str], bool]
-    ) -> Callable[[UnverifiedOrder], Result[VerifiedOrder, OrderError]]:
+    ) -> Callable[[UnverifiedOrder], ReviewResult]:
 
-    def _with_specific_check_method(
-            order: UnverifiedOrder
-    ) -> Result[VerifiedOrder, OrderError]:
-
+    def _review_order_core(order: UnverifiedOrder) -> ReviewResult:
         match order.shipping_to:
             case CustomerAddress(prefecture=pref, detail=det):
                 if not check_address_existence(pref, det):
                     return Err(
-                        OrderError(code="InvalidAddress",message="The provided address is invalid.")
+                        InvalidOrder(code="InvalidAddress",message="The provided address is invalid.")
                     )
             case ConvenienceStore(company=_, store_code=code):
                 if code == "":
                     return Err(
-                        OrderError(code="InvalidStoreCode",message="The provided store code is invalid.")
+                        InvalidOrder(code="InvalidStoreCode",message="The provided store code is invalid.")
                     )
 
         return Quantity.From(order.quantity).bind(
@@ -99,24 +114,24 @@ def review_order(
             )
         ).or_else(
             lambda error: Err(
-                OrderError(code="Order", message=error)
+                InvalidOrder(code="InvalidQuantity", message=error)
             )
         )
 
-    return _with_specific_check_method
+    return _review_order_core
 
 
+type CalcPriceResult = Result[Invoice, OutOfStock]
 def calculate_price(
     product_catalog: Callable[[str], Decimal]
-) -> Callable[[VerifiedOrder], Result[Invoice, OrderError]]:
+) -> Callable[[VerifiedOrder], CalcPriceResult]:
 
-    def _calculate_price_core(order: VerifiedOrder) -> Result[Invoice, OrderError]:
-
+    def _calculate_price_core(order: VerifiedOrder) -> CalcPriceResult:
         try:
             item_price = product_catalog(order.item_id)
         except KeyError:
             return Err(
-                OrderError(
+                OutOfStock(
                     code="ItemNotFound",
                     message=f"The item_id {order.item_id} is not found in the product catalog.")
             )
@@ -132,15 +147,12 @@ def calculate_price(
 
     return _calculate_price_core
 
-
+type ArrivalDateResult = Result[ShippedInvoice, Undeliverable]
 def determine_arrival_date(
         lookup_days: LookUpDeliveryDaysMethods,
-    )-> Callable[[Invoice], Result[ShippedInvoice, OrderError]]:
+    )-> Callable[[Invoice], ArrivalDateResult]:
 
-    def _determine_arrival_date_core(
-            invoice: Invoice
-        ) -> Result[ShippedInvoice, OrderError]:
-
+    def _determine_arrival_date_core(invoice: Invoice) -> ArrivalDateResult:
         match invoice.shipping_to:
             case CustomerAddress(prefecture=pref, detail=_):
                 days = lookup_days[0](pref)
@@ -149,7 +161,7 @@ def determine_arrival_date(
 
         if days is None:
             return Err(
-                OrderError(
+                Undeliverable(
                     code="NonDeliverableArea",
                     message="Customer address is in an undeliverable area.",
                 )
