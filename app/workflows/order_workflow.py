@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Callable, Literal, cast
+from typing import Callable, Literal
 
-from data_access.index import  AddressCheckerProtocol,  CatalogCheckerProtocol, DeliveryDaysEstimatorProtocol
-from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod, Quantity
 from common.protocol.order_protocol import OrderInProtocol, OrderOutProtocol, OrderErrorProtocol
 from common.util.result import Err, From, Ok, Result
+from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod, Quantity
+from data_access.index import  AddressCheckerProtocol,  CatalogCheckerProtocol, DeliveryDaysEstimatorProtocol
 
 
 """ resulting events """
@@ -35,10 +35,9 @@ class Undeliverable(OrderErrorProtocol):
 
 type OrderError = InvalidOrder | OutOfStock | Undeliverable
 
-
 """ state transition in workflow """
 @dataclass(frozen=True)
-class UnverifiedOrder:
+class UnverifiedOrder(OrderInProtocol):
     item_id: str
     quantity: int
     delivery_method: DeliveryMethod
@@ -71,7 +70,7 @@ def process_order(
     ) -> ProcessOrderResult:
 
         return (
-            From(cast(UnverifiedOrder, order))
+            From(order)
             .bind(review_order(address_checker))
             .bind(calculate_price(product_catalog))
             .bind(determine_arrival_date(estimate_delivery_days))
@@ -79,14 +78,13 @@ def process_order(
 
     return _process_order_core
 
-
 """ tasks """
 type ReviewResult =Result[VerifiedOrder, InvalidOrder]
 def review_order(
         check_address_existence: AddressCheckerProtocol
-    ) -> Callable[[UnverifiedOrder], ReviewResult]:
+    ) -> Callable[[OrderInProtocol], ReviewResult]:
 
-    def _review_order_core(order: UnverifiedOrder) -> ReviewResult:
+    def _review_order_core(order: OrderInProtocol) -> ReviewResult:
         match order.shipping_to:
             case CustomerAddress(prefecture=pref, detail=det):
                 if not check_address_existence(pref, det):

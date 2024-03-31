@@ -9,6 +9,7 @@ from pydantic.dataclasses import dataclass
 from data_access.index import product_catalog, existence_check_japanese_address, lookup_delivery_days_pack
 
 from workflows.order_workflow import process_order
+from common.protocol.order_protocol import OrderInProtocol, OrderOutProtocol, OrderErrorProtocol
 
 from common.models.order import ConvenienceStore, CustomerAddress, DeliveryMethod
 from common.util.result import Err, Ok
@@ -22,13 +23,12 @@ from docs.order_examle import home_delivery_example, convenience_store_delivery_
 
 # 外部通信(http、DB書き込み、他のサービスへのイベント通知/キューイングなど)レイヤ。
 # 非純粋な領域。このレイヤーではFW依存機能や例外をガンガン使用する
-# CONSIDER: エンドポイント(httpの捌き)の責務とサービスの責務レイヤーに分割しても良いかもしれない。
 
 router = APIRouter()
 
 
 @dataclass(frozen=True)
-class OrderRequest:
+class OrderRequest(OrderInProtocol):
     item_id: str
     quantity: int
     delivery_method: DeliveryMethod

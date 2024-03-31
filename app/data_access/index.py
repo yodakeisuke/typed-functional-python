@@ -20,10 +20,10 @@ product_catalog = product_catalog
 
 
 class ToHome(Protocol):
-    def __call__(self, prefecture: str) -> int:
+    def __call__(self, area: str) -> int | None:
         ...
 class ToCVS(Protocol):
-    def __call__(self, company: str, code: str) -> int | None:
+    def __call__(self, franchisor: str, code: str) -> int | None:
         ...
 
 type DeliveryDaysEstimatorProtocol = tuple[ToHome, ToCVS]
