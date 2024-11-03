@@ -1,5 +1,7 @@
 import sys
-sys.path.append('/Users/yk/work/fastAPI/typed_functional_python/app')
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 from common.util.result import Err, From, Ok, Result
 from dataclasses import dataclass
