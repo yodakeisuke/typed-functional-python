@@ -7,7 +7,7 @@ readme = "README.md"
 packages = []
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.13"
 fastapi = "^0.104.0"
 uvicorn = "^0.23.1"
 python-dotenv = "^1.0.0"
@@ -23,7 +23,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 line-length = 100
 select = [
   "E", # pycodestyle errors
@@ -44,9 +44,9 @@ unfixable = [
 ]
 
 [tool.mypy]
-python_version = 3.12
+python_version = 3.13
 strict = true
 
 [tool.black]
-target-version= ['py312']
+target-version= ['py313']
 line-length = 100
