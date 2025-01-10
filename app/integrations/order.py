@@ -56,6 +56,10 @@ class OrderResponse:
     shipping_to: CustomerAddress | ConvenienceStore
 
 
+def update_order_status(order_id: str, status: str) -> None:
+    print(f"Updating order {order_id} status to {status}")
+
+
 @router.post("", operation_id="create_order", response_model=OrderResponse)
 async def create_order(
     order: Annotated[
@@ -82,7 +86,8 @@ async def create_order(
                     arrival_date=o.arrival_date,
                     shipping_to=o.shipping_to,
                 )
-            send_event(order_response_to_json(ordered_event))
+            send_event(order_response_to_json(ordered_event), order.item_id, o.arrival_date.isoformat())
+            update_order_status(order.item_id, "shipped")
             return ordered_event
         case Err(e):
             raise HTTPException(status_code=400, detail=e.message)
